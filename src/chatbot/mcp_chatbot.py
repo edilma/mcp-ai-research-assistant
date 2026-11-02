@@ -22,6 +22,7 @@ class MCP_ChatBot:
         self.anthropic = anthropic.Anthropic()
         self.available_tools: List[ToolDefinition] = []
         self.tool_to_session: Dict[str, ClientSession] = {}
+        self.server_to_session = {}
 
 
 
@@ -55,6 +56,8 @@ class MCP_ChatBot:
 
         for tool in response.tools:
             self.tool_to_session[tool.name] = session
+
+            self.server_to_session[server_name] = session
 
             self.available_tools.append({
                 "name": tool.name,
@@ -90,6 +93,43 @@ class MCP_ChatBot:
 
         for server_name, server_config in servers.items():
             await self.connect_to_server(server_name, server_config)
+
+
+    async def read_research_resource(self, uri: str) -> str:
+        """Read a resource from the research MCP server."""
+        session = self.server_to_session["research"]
+        result = await session.read_resource(uri)
+
+        return "\n".join(
+            item.text
+            for item in result.contents
+            if hasattr(item, "text")
+        )
+
+
+    async def get_research_prompt(
+        self, topic: str, num_papers: int = 5
+    ) -> str:
+        """Retrieve a reusable research prompt."""
+        session = self.server_to_session["research"]
+
+        result = await session.get_prompt(
+            "generate_search_prompt",
+            arguments={
+                "topic": topic,
+                "num_papers": str(num_papers)
+            }
+        )
+
+        return "\n".join(
+            message.content.text
+            for message in result.messages
+            if hasattr(message.content, "text")
+        )
+
+
+
+
 
 
     async def process_query(self, query):
