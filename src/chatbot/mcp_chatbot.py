@@ -1,6 +1,7 @@
 from dotenv import load_dotenv
 import anthropic
 from mcp import ClientSession, StdioServerParameters
+from mcp.client.streamable_http import streamable_http_client
 from mcp.client.stdio import stdio_client
 from typing import List, Dict, TypedDict
 from contextlib import AsyncExitStack
@@ -31,12 +32,19 @@ class MCP_ChatBot:
     ) -> None:
         """Connect to a single MCP server."""
 
-        server_params = StdioServerParameters(**server_config)
+        # Choose the transport based on server configuration
+        if "url" in server_config:
+            # Remote MCP server — Streamable HTTP
+            read, write = await self.exit_stack.enter_async_context(
+                streamable_http_client(server_config["url"])
+            )
+        else:
+            # Local MCP server — STDIO
+            server_params = StdioServerParameters(**server_config)
 
-        # Open the server transport
-        read, write = await self.exit_stack.enter_async_context(
-            stdio_client(server_params)
-        )
+            read, write = await self.exit_stack.enter_async_context(
+                stdio_client(server_params)
+            )
 
         # Create and initialize the MCP session
         session = await self.exit_stack.enter_async_context(

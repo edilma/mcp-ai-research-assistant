@@ -25,6 +25,9 @@
       "args": [
         "mcp-server-fetch"
       ]
-    }
+    },
+    "remote-demo": {
+    "url": "https://mcp-ai-research-assistant.onrender.com/mcp"
+}
   }
 }
