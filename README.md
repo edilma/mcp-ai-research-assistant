@@ -1,132 +1,135 @@
-# arXiv Research Chatbot
+# MCP Research Chatbot
 
-A Python research assistant that integrates Anthropic's Claude API, the arXiv API, and the Model Context Protocol (MCP) to discover, retrieve, and summarize academic research papers.
+A Python command-line research assistant that uses Claude to search arXiv for academic papers, save paper metadata, and summarize findings. The MCP chatbot can also retrieve information from other websites through the Fetch server. The project demonstrates Claude’s native tool calling and how a client discovers and uses tools through the Model Context Protocol (MCP).
 
-The project includes a command-line chatbot using Claude's native tool calling and a separate MCP server that exposes research tools to compatible MCP clients.
+## What’s included
 
-Developed as a learning project based on DeepLearning.AI's *MCP: Build Rich-Context AI Apps with Anthropic* course.
+| Component | What it does |
+| --- | --- |
+| `chatbot` | Runs the original command-line chatbot using Claude’s native tool calling for arXiv research. |
+| `mcp-chatbot` | Runs the command-line chatbot as an MCP client and discovers tools from the servers in `server_config.json`. |
+| Research server | Searches arXiv, saves paper metadata, and exposes saved results and a research prompt through MCP. |
+| Filesystem server | Lets the MCP chatbot read and manage files within the configured `papers` folder. |
+| Fetch server | Lets the MCP chatbot retrieve content from other websites. |
+| Remote demo server | Exposes a `hello` tool for testing a remote MCP connection over Streamable HTTP. |
 
-## Features
-
-- Search arXiv for academic papers by topic.
-- Retrieve paper titles, authors, abstracts, publication dates, and PDF URLs.
-- Store paper metadata locally in JSON files, organized by topic.
-- Retrieve previously saved papers by arXiv ID
-- Generate research summaries using Claude and tool calling
-- Interact with the research chatbot through a command-line interface
-- Expose research functionality through an MCP server
-- Discover and test MCP tools using MCP Inspector
-
-## Tech Stack
-
-- **Python 3.12+**
-- **uv** — Dependency and environment management
-- **Anthropic SDK** — Claude API integration
-- **MCP Python SDK** — MCP server implementation and tool registration
-- **arxiv** — Python wrapper for the arXiv API
-- **python-dotenv** — Environment variable management
-- **MCP Inspector** — MCP server testing and debugging
-
-## Project Structure
-
-```text
-chatbot/
-├── src/
-│   └── chatbot/
-│       ├── __init__.py
-│       ├── main.py           # Original chatbot entry point
-│       ├── chatbot.py        # Original Claude chatbot
-│       ├── mcp_main.py       # New MCP chatbot entry point
-│       ├── mcp_chatbot.py    # New MCP client orchestration
-│       ├── tools.py          # arXiv functions
-│       └── tool_schema.py    # Original Claude Tool Schemas
-│       └── research_server.py# MCP Server
-├── papers/                   # Locally saved paper metadata
-├── .env.example
-├── .gitignore
-├── pyproject.toml
-├── uv.lock
-└── README.md
-```
+Searches save titles, authors, abstracts, dates, and PDF links in `papers/<topic>/papers.json`. PDF files stay on arXiv.
 
 ## Setup
 
-**1. Install dependencies**
+Install [uv](https://docs.astral.sh/uv/) and use Python 3.12 or newer. Install Node.js with npm if you plan to use the Filesystem server or MCP Inspector.
 
-From the project root:
+Run the following from the project root in PowerShell:
 
-```bash
+```powershell
 uv sync
+Copy-Item .env.example .env
 ```
 
-**2. Configure your API key**
-
-Create a `.env` file in the project root:
+If you already have a `.env` file, keep it and add your Anthropic API key there:
 
 ```dotenv
 ANTHROPIC_API_KEY=your_anthropic_api_key
 ```
 
-**3. Run the chatbot**
+Both command-line chatbots use the Anthropic API. The Research server can run on its own without that key. Keep `.env` out of version control.
 
-```bash
+## Run the chatbot
+
+To use Claude’s native tool calling:
+
+```powershell
 uv run chatbot
 ```
 
-Enter a research topic or question at the prompt. Type `quit` to exit.
+To use the MCP client:
 
-**4. Run the MCP server**
-
-```bash
-uv run python -m chatbot.research_server
+```powershell
+uv run mcp-chatbot
 ```
 
-The MCP server uses the stdio transport and waits for connections from an MCP client.
+Run the MCP client from the project root so it can find `server_config.json`. Try asking it to find two papers about AI interpretability and summarize their abstracts. Type `quit` to exit either chatbot.
 
-**5. Test the MCP server with MCP Inspector**
+## Configure MCP servers
 
-```bash
+The project’s `server_config.json` contains these entries:
+
+| Server | Transport | Purpose |
+| --- | --- | --- |
+| `research` | STDIO | Starts `chatbot.research_server` locally for arXiv search and saved paper lookup. |
+| `filesystem` | STDIO | Starts the Filesystem server through `npx` and grants access to the directory specified in its arguments. |
+| `fetch` | STDIO | Starts `mcp-server-fetch` through `uvx` to retrieve web content. |
+| `remote-demo` | Streamable HTTP | Connects to a hosted demo endpoint that exposes the `hello` tool. |
+
+Before launching the client, update the Filesystem path to an existing `papers` directory on your machine. On Windows, the configuration uses `cmd /c` to launch `npx`. The client attempts to connect to every configured server at startup. If the hosted demo is unavailable or you’re testing only local servers, remove the `remote-demo` entry from your local configuration.
+
+Grant Filesystem access only to a folder you’re comfortable having it read and modify. Review saved paper metadata before committing it or sharing it through a chat.
+
+## Research tools and resources
+
+| Name | Purpose |
+| --- | --- |
+| `search_papers(topic, max_results=5)` | Searches arXiv, saves the results locally, and returns paper IDs. |
+| `extract_info(paper_id)` | Looks up metadata for a previously saved arXiv paper. |
+| `papers://folders` | Lists topics with saved results. |
+| `papers://{topic}` | Reads saved metadata for a topic. |
+| `generate_search_prompt` | Generates instructions for searching and comparing papers on a topic. |
+
+## Test the Research server
+
+From the project root, launch MCP Inspector:
+
+```powershell
 npx @modelcontextprotocol/inspector uv run python -m chatbot.research_server
 ```
-Open the local Inspector URL displayed in the terminal, connect to the server, and test the available tools.
 
-## How It Works
-The project currently has two components:
+Open the Inspector URL printed in the terminal, connect using STDIO, and check that `search_papers` and `extract_info` are listed. If a tool call produces protocol errors, check for diagnostic output on stdout. STDIO MCP uses stdout for protocol messages and stderr for logs.
 
-### Claude Research Chatbot
+To connect through Claude Desktop on Windows, configure the server in `%APPDATA%\Claude\claude_desktop_config.json`. Use `uv --directory` with the absolute project path so Claude Desktop can launch the Research server from the correct directory.
 
-1. The user submits a research question
-2. Claude receives the question and available tool definitions
-3. Claude decides whether to request a tool
-4. The Python application executes the requested function
-5. Tool results are returned to Claude
-6. Claude generates a natural-language response
+## Test the HTTP demo locally
 
-### MCP Research Server
+```powershell
+uv run python -m chatbot.remote_server
+```
 
-1. The MCP server exposes research tools using the Python MCP SDK
-2. Tool schemas are generated from Python function signatures and docstrings
-3. An MCP client discovers and invokes available tools
-4. The server executes the requested Python functions and returns their results
-5. Research metadata is stored locally in JSON files organized by topic
+Connect an MCP client to `http://localhost:8001/mcp` using Streamable HTTP and call `hello`. The demo uses port `8001` by default and accepts a different port through the `PORT` environment variable.
 
-## Available Tools
+## Project structure
 
-| Tool | Description |
-|---|---|
-| `search_papers(topic, max_results=5)` | Searches arXiv and saves paper metadata |
-| `extract_info(paper_id)` | Retrieves locally stored information for a paper |
+```text
+chatbot/
+├── src/chatbot/
+│   ├── main.py              # Original chatbot entry point
+│   ├── chatbot.py           # Claude native tool calling
+│   ├── tools.py             # arXiv search and metadata lookup
+│   ├── tool_schema.py       # Tool definitions for the original chatbot
+│   ├── mcp_main.py          # MCP chatbot entry point
+│   ├── mcp_chatbot.py       # MCP connections and Claude tool routing
+│   ├── research_server.py   # Local STDIO research server
+│   └── remote_server.py     # Streamable HTTP demo server
+├── papers/                  # Local paper metadata
+├── server_config.json       # MCP client server configuration
+├── .env.example             # Environment variable template
+├── pyproject.toml           # Project dependencies and CLI commands
+└── uv.lock                  # Locked dependencies
+```
 
-## Notes
+## Features
 
-- The application saves paper metadata, not PDF files
-- Chat history is not persisted between queries
-- The Claude chatbot currently uses Anthropic's native tool-calling API
-- The MCP server is implemented separately and can be tested using MCP Inspector
-- The existing chatbot is not yet connected to the MCP server.
-- API requests may be subject to arXiv rate limits.
-- Keep API credentials must remain outside version control.
+- Search arXiv for academic papers by topic and summarize the findings with Claude.
+- Save paper titles, authors, abstracts, publication dates, and PDF links locally. Browse saved results by topic or look up a paper by its arXiv ID.
+- Retrieve content from other websites with the Fetch MCP server.
+- Read and manage files in the configured `papers` folder with the Filesystem MCP server.
+- Run the original Claude chatbot or the MCP chatbot from the command line.
+- Test a remote MCP connection with the demo server’s `hello` tool.
 
-## Acknowledgments
+## Tech Stack
 
-Inspired by DeepLearning.AI'ss *MCP: Build Rich-Context AI Apps with Anthropic* course, adapted into a local Python project using VS Code and uv.
+- **Python 3.12+** for the chatbots and MCP servers
+- **uv** for dependencies and running the project
+- **Anthropic SDK** for Claude API calls
+- **MCP Python SDK** for MCP clients and servers
+- **arxiv** for academic paper searches
+- **python-dotenv** for loading local environment variables
+- **Node.js and npm** for launching the Filesystem server and MCP Inspector
