@@ -15,12 +15,12 @@ wheels/
 .env.*
 !.env.example
 
-#personal folder
-personal/
-
-# Private research - do not upload to GitHub
+# Private research folders
 /papers/antimicrobial_peptides_immune_defense/
 /papers/glp-1_receptor_agonist_semaglutide_tirzepatide_weight_loss/
 /papers/growth_hormone_secretagogues_peptide_therapy/
 /papers/peptides_bioactive_therapeutic/
 /papers/peptides_guide/
+
+# Personal notes and documents
+/personal/
